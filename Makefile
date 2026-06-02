@@ -1,5 +1,5 @@
 build:
-	@gcc -Wall -std=c99 ./src/*.c -o main
+	@gcc ./src/*.c -Wall -std=c99 -lSDL2 -o main
 
 clean:
 	@rm ./main
