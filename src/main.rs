@@ -1,4 +1,12 @@
-use sdl2::{self, pixels::Color, video::FullscreenType};
+use sdl2::{self, pixels::PixelFormatEnum, video::FullscreenType};
+
+fn clear_buffer(buf: &mut [u8], _: usize) -> () {
+    let pixels: &mut [u32] = bytemuck::cast_slice_mut(buf);
+
+    pixels.iter_mut().for_each(|pixel| {
+        *pixel = 0x000000FF;
+    });
+}
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -23,8 +31,15 @@ fn main() {
         .set_fullscreen(FullscreenType::True)
         .unwrap();
 
-    canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
-    canvas.clear();
+    let texture_creator = canvas.texture_creator();
+
+    let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::RGBA8888, window_width, window_height)
+        .unwrap();
+
+    texture.with_lock(None, clear_buffer).unwrap();
+
+    canvas.copy(&texture, None, None).unwrap();
     canvas.present();
 
     std::thread::sleep(std::time::Duration::from_secs(5));
