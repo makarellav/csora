@@ -1,6 +1,6 @@
 use sdl2::render::Texture;
 
-use crate::color::rgba;
+use crate::{color::rgba, vector::Vec2};
 
 pub struct Rasterizer {
     pub window_width: i32,
@@ -28,10 +28,14 @@ impl Rasterizer {
         for y in 0..self.window_height {
             for x in 0..self.window_width {
                 if x % 100 == 0 || y % 100 == 0 {
-                    pixels[y as usize * pitch + x as usize] = color;
+                    self.draw_pixel(pixels, pitch, x as usize, y as usize, color);
                 }
             }
         }
+    }
+
+    pub fn draw_pixel(&self, pixels: &mut [u32], pitch: usize, x: usize, y: usize, color: u32) {
+        pixels[y * pitch + x] = color;
     }
 
     fn draw_rect(
@@ -52,28 +56,30 @@ impl Rasterizer {
 
         for y in y_start..y_end {
             for x in x_start..x_end {
-                pixels[y as usize * pitch + x as usize] = color;
+                self.draw_pixel(pixels, pitch, x as usize, y as usize, color);
             }
         }
     }
 
-    pub fn render(&self, texture: &mut Texture) -> Result<(), String> {
+    pub fn render(&self, texture: &mut Texture, points: &[Option<Vec2>]) -> Result<(), String> {
         texture.with_lock(None, |buf, pitch| {
             let pixels: &mut [u32] = bytemuck::cast_slice_mut(buf);
             let pixels_pitch = pitch / 4;
 
             self.clear_buffer(pixels, pixels_pitch, rgba(0, 0, 0, 255));
-            self.draw_grid(pixels, pixels_pitch, rgba(0, 255, 0, 255));
+            // self.draw_grid(pixels, pixels_pitch, rgba(0, 255, 0, 255));
 
-            self.draw_rect(
-                pixels,
-                pixels_pitch,
-                100,
-                100,
-                1000,
-                500,
-                rgba(0, 255, 0, 255),
-            );
+            for point in points.iter().filter_map(|p| *p) {
+                self.draw_rect(
+                    pixels,
+                    pixels_pitch,
+                    (point.x + (self.window_width / 2) as f32) as i32,
+                    (point.y + (self.window_height / 2) as f32) as i32,
+                    4,
+                    4,
+                    rgba(255, 0, 255, 255),
+                );
+            }
         })
     }
 }
