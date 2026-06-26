@@ -1,6 +1,6 @@
 use sdl2::render::Texture;
 
-use crate::{color::rgba, vector::Vec2};
+use crate::{Triangle, color::rgba, vector::Vec2};
 
 pub struct Rasterizer {
     pub window_width: i32,
@@ -38,7 +38,7 @@ impl Rasterizer {
         pixels[y * pitch + x] = color;
     }
 
-    fn draw_rect(
+    pub fn draw_rect(
         &self,
         pixels: &mut [u32],
         pitch: usize,
@@ -61,7 +61,46 @@ impl Rasterizer {
         }
     }
 
-    pub fn render(&self, texture: &mut Texture, points: &[Option<Vec2>]) -> Result<(), String> {
+    fn draw_line(
+        &self,
+        pixels: &mut [u32],
+        pitch: usize,
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        color: u32,
+    ) {
+        let x_delta = x1 - x0;
+        let y_delta = y1 - y0;
+
+        let side_length = std::cmp::max(x_delta.abs(), y_delta.abs());
+
+        let x_inc = x_delta as f32 / side_length as f32;
+        let y_inc = y_delta as f32 / side_length as f32;
+
+        let mut current_x = x0 as f32;
+        let mut current_y = y0 as f32;
+
+        for _ in 0..=side_length {
+            self.draw_pixel(
+                pixels,
+                pitch,
+                current_x.round() as usize,
+                current_y.round() as usize,
+                color,
+            );
+
+            current_x += x_inc;
+            current_y += y_inc;
+        }
+    }
+
+    pub fn render(
+        &self,
+        texture: &mut Texture,
+        triangles_to_render: &[Triangle],
+    ) -> Result<(), String> {
         texture.with_lock(None, |buf, pitch| {
             let pixels: &mut [u32] = bytemuck::cast_slice_mut(buf);
             let pixels_pitch = pitch / 4;
@@ -69,17 +108,49 @@ impl Rasterizer {
             self.clear_buffer(pixels, pixels_pitch, rgba(0, 0, 0, 255));
             // self.draw_grid(pixels, pixels_pitch, rgba(0, 255, 0, 255));
 
-            for point in points.iter().filter_map(|p| *p) {
-                self.draw_rect(
+            triangles_to_render.iter().for_each(|triangle| {
+                triangle.points.iter().for_each(|p| {
+                    self.draw_rect(
+                        pixels,
+                        pixels_pitch,
+                        (p.x + (self.window_width / 2) as f32) as i32,
+                        (p.y + (self.window_height / 2) as f32) as i32,
+                        4,
+                        4,
+                        rgba(255, 0, 255, 255),
+                    );
+                });
+
+                self.draw_line(
                     pixels,
                     pixels_pitch,
-                    (point.x + (self.window_width / 2) as f32) as i32,
-                    (point.y + (self.window_height / 2) as f32) as i32,
-                    4,
-                    4,
+                    (triangle.points[0].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[0].y + (self.window_height / 2) as f32) as i32,
+                    (triangle.points[1].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[1].y + (self.window_height / 2) as f32) as i32,
                     rgba(255, 0, 255, 255),
                 );
-            }
+
+                self.draw_line(
+                    pixels,
+                    pixels_pitch,
+                    (triangle.points[1].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[1].y + (self.window_height / 2) as f32) as i32,
+                    (triangle.points[2].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[2].y + (self.window_height / 2) as f32) as i32,
+                    rgba(255, 0, 255, 255),
+                );
+
+                self.draw_line(
+                    pixels,
+                    pixels_pitch,
+                    (triangle.points[2].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[2].y + (self.window_height / 2) as f32) as i32,
+                    (triangle.points[0].x + (self.window_width / 2) as f32) as i32,
+                    (triangle.points[0].y + (self.window_height / 2) as f32) as i32,
+                    rgba(255, 0, 255, 255),
+                );
+            });
         })
     }
 }
